@@ -5,3 +5,6 @@ build:
 
 run: build
 	./png2snes black.png
+
+test: build
+	go test -v ./...
