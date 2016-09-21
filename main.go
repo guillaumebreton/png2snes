@@ -1,32 +1,55 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
 	_ "image/png"
 	"os"
+	"strings"
 )
 
-var bitplanesNumer int = 4
+var in = flag.String("in", "", "the input tile set")
+var clr = flag.String("out-clr", "", "The path where the clr file will be store")
+var pic = flag.String("out-pic", "", "The path where the inc file will be store")
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Printf("%v\n", os.Args)
-		fmt.Println("usage : png2snes filepath.png")
-		fmt.Println("output two file in the current directory : filepath.pic and filepath.clr")
+
+	flag.Parse()
+
+	if *in == "" {
 		os.Exit(1)
 	}
+
+	idx := strings.LastIndex(*in, ".")
+	inPath := *in
+	if idx != -1 {
+		file := *in
+		inPath = file[:idx]
+	}
+
+	clrFilePath := *clr
+	if clrFilePath == "" {
+		clrFilePath = inPath + ".clr"
+	}
+
+	picFilePath := *pic
+	if picFilePath == "" {
+		picFilePath = inPath + ".pic"
+	}
 	// Load file
-	infile, err := os.Open(os.Args[1])
+	infile, err := os.Open(*in)
 	if err != nil {
-		fmt.Printf("Fail to open file %s\n", os.Args[1])
+		fmt.Printf("Fail to open file %s\n", *in)
 		os.Exit(2)
 	}
 	defer infile.Close()
 	src, _, err := image.Decode(infile)
 	if err != nil {
-		fmt.Printf("Fail to read file %s : %s\n", os.Args[1], err)
+		fmt.Printf("Fail to read file %s : %s\n", *in, err)
 		os.Exit(3)
 	}
 
@@ -48,42 +71,27 @@ func main() {
 			colors[y][x] = idx
 		}
 	}
-	PrintColors(colors)
-	println("---------- Bit plane -------------")
+	// write the CLR file
+	err = palette.Write(clrFilePath)
+	if err != nil {
+		fmt.Printf("Fail to write %s file : %v\n", clrFilePath, err)
+		os.Exit(5)
+	}
+
 	//get all tiles data
+	bps := NewBitPlanes(4)
 	for x := 0; x < w; x += 8 {
 		for y := 0; y < h; y += 8 {
-			bp := GetTileBitplanes(colors, x, y, bitplanesNumer)
-			PrintBitplane(bp)
+			bps.Add(colors, x, y)
 		}
 	}
-	println("---------- END Bit plane -------------")
-}
 
-// GetTile data
-// Bpn bitplane number
-func GetTileBitplanes(colors [][]int, x, y, bpn int) []byte {
-	bitplanes := make([]byte, 0)
-	for b := 0; b < bpn; b += 2 {
-		// for each color, extract the b and b+1 bit plane layer
-		mask1 := 0x1 << uint(b)
-		mask2 := 0x1 << (uint(b) + 1)
-		for j := y; j < y+8; j++ {
-			var bitplane1 byte = 0
-			var bitplane2 byte = 0
-			for i := x; i < x+8; i++ {
-				cIdx := colors[j][i]
-				shift := uint(i - x)
-				var bit1 int = (cIdx & mask1) << (7 - shift - uint(b))
-				var bit2 int = (cIdx & mask2) << (7 - shift - uint(b) - 1)
-				bitplane1 = bitplane1 | byte(bit1)
-				bitplane2 = bitplane2 | byte(bit2)
-			}
-			bitplanes = append(bitplanes, bitplane1)
-			bitplanes = append(bitplanes, bitplane2)
-		}
+	// write the PIC file
+	err = bps.Write(picFilePath)
+	if err != nil {
+		fmt.Printf("Fail to write %s.clr file : %v\n", picFilePath, err)
+		os.Exit(5)
 	}
-	return bitplanes
 }
 
 func PrintBitplane(bp []byte) {
@@ -102,6 +110,57 @@ func PrintColors(colors [][]int) {
 	}
 }
 
+func GetWriter(filepath string) (*bufio.Writer, *os.File, error) {
+	file, err := os.OpenFile(filepath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return nil, nil, err
+	}
+	return bufio.NewWriter(file), file, err
+}
+
+type Bitplanes struct {
+	bitplanes       []byte
+	bitplanesNumber int
+}
+
+func NewBitPlanes(bitplanesNumber int) *Bitplanes {
+	return &Bitplanes{make([]byte, 0), bitplanesNumber}
+
+}
+
+func (bps *Bitplanes) Add(colors [][]int, x, y int) {
+	for b := 0; b < bps.bitplanesNumber; b += 2 {
+		// for each color, extract the b and b+1 bit plane layer
+		mask1 := 0x1 << uint(b)
+		mask2 := 0x1 << (uint(b) + 1)
+		for j := y; j < y+8; j++ {
+			var bitplane1 byte = 0
+			var bitplane2 byte = 0
+			for i := x; i < x+8; i++ {
+				cIdx := colors[j][i]
+				shift := uint(i - x)
+				var bit1 int = (cIdx & mask1) << (7 - shift - uint(b))
+				var bit2 int = (cIdx & mask2) << (7 - shift - uint(b) - 1)
+				bitplane1 = bitplane1 | byte(bit1)
+				bitplane2 = bitplane2 | byte(bit2)
+			}
+			bps.bitplanes = append(bps.bitplanes, bitplane1)
+			bps.bitplanes = append(bps.bitplanes, bitplane2)
+		}
+	}
+}
+
+func (b *Bitplanes) Write(filepath string) error {
+	w, file, err := GetWriter(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	err = binary.Write(w, binary.LittleEndian, b.bitplanes)
+	w.Flush()
+	return err
+}
+
 // A Palette store the distinct colors in a 15 bits LSB RGB values
 type Palette struct {
 	Colors []uint16
@@ -109,6 +168,22 @@ type Palette struct {
 
 func NewPalette() *Palette {
 	return &Palette{make([]uint16, 0)}
+}
+
+func (p *Palette) Write(filepath string) error {
+	w, file, err := GetWriter(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	for _, v := range p.Colors {
+		err := binary.Write(w, binary.LittleEndian, v)
+		if err != nil {
+			return err
+		}
+	}
+	w.Flush()
+	return nil
 }
 func (p *Palette) Add(c uint16) int {
 	index := p.Index(c)
