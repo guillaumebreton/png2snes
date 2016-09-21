@@ -1,7 +1,7 @@
 all: build run
 
 build:
-	@go build -o png2snes ./...
+	@go build -o png2snes
 
 run: build
 	@rm -rf out && mkdir out
