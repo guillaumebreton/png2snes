@@ -13,14 +13,27 @@ import (
 )
 
 var in = flag.String("in", "", "the input tile set")
-var clr = flag.String("out-clr", "", "The path where the clr file will be store")
-var pic = flag.String("out-pic", "", "The path where the inc file will be store")
+var clr = flag.String("out", ".", "The output director")
 
 func main() {
-
 	flag.Parse()
+	if *in == "" {
+		fmt.Println("Input file cannot be empty")
+		os.Exit(1)
+	}
+	m, err := LoadMap(*in)
+	if err != nil {
+		fmt.Printf("Failed to load map : %s\n", err.Error())
+		os.Exit(2)
+	}
+	m.Print()
+
+}
+
+func test(in, clr, pic *string) {
 
 	if *in == "" {
+		fmt.Println("Input file cannot be empty")
 		os.Exit(1)
 	}
 
@@ -125,7 +138,6 @@ type Bitplanes struct {
 
 func NewBitPlanes(bitplanesNumber int) *Bitplanes {
 	return &Bitplanes{make([]byte, 0), bitplanesNumber}
-
 }
 
 func (bps *Bitplanes) Add(colors [][]int, x, y int) {
@@ -185,6 +197,7 @@ func (p *Palette) Write(filepath string) error {
 	w.Flush()
 	return nil
 }
+
 func (p *Palette) Add(c uint16) int {
 	index := p.Index(c)
 	if index == -1 {

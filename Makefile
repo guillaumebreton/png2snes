@@ -5,7 +5,7 @@ build:
 
 run: build
 	@rm -rf out && mkdir out
-	@./png2snes -in black.png -out-clr out/black.clr -out-pic out/black.pic
+	@./png2snes -in examples/test.tmx
 
 test: build
 	go test -v ./...
