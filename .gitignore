@@ -22,8 +22,8 @@ _testmain.go
 *.exe
 *.test
 *.prof
-png2snes
 *.clr
 *.pic
 *.map
 examples
+tmx2snes

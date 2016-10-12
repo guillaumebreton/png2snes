@@ -1,11 +1,11 @@
 all: build run
 
 build:
-	@go build -o png2snes
+	@go build -o tmx2snes
 
 run: build
 	@rm -rf out && mkdir out
-	@./png2snes -in examples/test.tmx
+	@./tmx2snes -in resources/map.tmx
 
 test: build
 	go test -v ./...
