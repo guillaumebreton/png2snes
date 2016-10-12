@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-var in = flag.String("in", "", "the input tile set")
-var clr = flag.String("out", ".", "The output director")
+var in = flag.String("in", "", "the input tmx set")
+var out = flag.String("out", ".", "The output director")
 
 func main() {
 	flag.Parse()
@@ -27,6 +27,39 @@ func main() {
 		os.Exit(2)
 	}
 	m.Print()
+
+	// generate the tileset as a .pic and a .clr
+	for _, v := range m.Tilesets {
+		clrPath := fmt.Sprintf("%s/%s.clr", *out, v.Name)
+		picPath := fmt.Sprintf("%s/%s.pic", *out, v.Name)
+
+		clrFile, err := os.Create(clrPath)
+		if err != nil {
+			fmt.Println("Failed to write to path " + clrPath)
+			os.Exit(1)
+		}
+		clrFile.Close()
+
+		picFile, err := os.Create(picPath)
+		if err != nil {
+			fmt.Println("Failed to write to path " + picPath)
+			os.Exit(1)
+		}
+		picFile.Close()
+
+	}
+
+	// generate a .map for each layer
+	for _, v := range m.Layers {
+		// create a map file
+		path := fmt.Sprintf("%s/%s.map", *out, v.Name)
+		layerFile, err := os.Create(path)
+		if err != nil {
+			fmt.Println("Failed to write to path " + path)
+			os.Exit(1)
+		}
+		layerFile.Close()
+	}
 
 }
 

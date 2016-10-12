@@ -5,7 +5,7 @@ build:
 
 run: build
 	@rm -rf out && mkdir out
-	@./tmx2snes -in resources/map.tmx
+	@./tmx2snes -in resources/map.tmx -out out
 
 test: build
 	go test -v ./...
